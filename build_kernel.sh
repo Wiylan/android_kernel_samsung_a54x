@@ -27,7 +27,7 @@ export TARGET_SOC=s5e8835
 OUT_DIR=out
 
 # Kernel configs
-KERNEL_CONFIGS="s5e8835-a54xnaxx_defconfig"
+KERNEL_CONFIGS="a54x_defconfig"
 
 echo "==============================="
 echo "        Building Kernel "
