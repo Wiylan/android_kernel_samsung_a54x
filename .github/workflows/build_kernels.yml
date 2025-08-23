@@ -1,0 +1,272 @@
+name: ⚒️ Build Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'All branches'
+        type: choice
+        options:
+          - All branches
+          - DΛG
+          - permissive
+          - ksu
+          - ksun
+          - sukisu
+          - ksu-susfs
+          - ksun-susfs
+          - sukisu-susfs
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event.inputs.branch }}" == "All branches" ]; then
+            echo 'matrix=["DΛG", "permissive", "ksu", "ksun", "sukisu", "ksu-susfs", "ksun-susfs", "sukisu-susfs"]' >> $GITHUB_OUTPUT
+          else
+            echo 'matrix=["${{ github.event.inputs.branch }}"]' >> $GITHUB_OUTPUT
+          fi
+
+  notify_workflow:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Notification
+        run: |
+          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F message_thread_id="${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}" \
+            -F text="
+            🚀 Build started for Kernels! 
+            📦 *Repository:* [${{ github.repository }}](https://github.com/${{ github.repository }})
+            🗂️ *Branch:* ${{ github.event.inputs.branch }}
+            ✏️ *Commit:* [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            [🔗 View GitHub Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            -F parse_mode="Markdown"
+
+  read_changelog:
+    needs: setup
+    runs-on: ubuntu-latest
+    outputs:
+      changelog: ${{ steps.changelog.outputs.CHANGELOG }}
+    steps:
+      - name: Checkout DΛG branch
+        uses: actions/checkout@v4
+        with:
+          ref: 'DΛG'
+          
+      - name: Read CHANGELOG.md
+        id: changelog
+        run: |
+          CHANGELOG=$(cat CHANGELOG.md)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  build_kernel:
+    needs: [setup, read_changelog]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJson(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Cleanup
+        uses: rokibhasansagar/slimhub_actions@main
+
+      - name: Install dependencies
+        run: |
+          sudo apt update && sudo apt install -y git device-tree-compiler lz4 xz-utils zlib1g-dev openjdk-17-jdk gcc g++ python3 python-is-python3 p7zip-full android-sdk-libsparse-utils erofs-utils \
+          default-jdk git gnupg flex bison gperf build-essential zip curl libc6-dev libncurses-dev libx11-dev libreadline-dev libgl1 libgl1-mesa-dev \
+          python3 make sudo gcc g++ bc grep tofrodos python3-markdown libxml2-utils xsltproc zlib1g-dev python-is-python3 libc6-dev libtinfo6 \
+          make repo cpio kmod openssl libelf-dev pahole libssl-dev libarchive-tools zstd rsync --fix-missing && \
+          wget http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb && \
+          sudo dpkg -i libtinfo5_6.3-2ubuntu0.1_amd64.deb && \
+          rm libtinfo5_6.3-2ubuntu0.1_amd64.deb
+      
+      - name: Make directories
+        run: |
+          mkdir -p $HOME/kernel
+          mkdir -p $HOME/toolchain
+          mkdir -p $HOME/toolchain/clang-r450784c
+
+      - name: Cache toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: $HOME/toolchain/clang-r450784c
+          key: clang-r450784c-toolchain
+
+      - name: Fetch toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          wget -c https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/llvm-r450784/clang-r450784c.tar.gz -O clang.tar.gz
+          tar -xf clang.tar.gz -C $HOME/toolchain/clang-r450784c
+        
+      - name: Fetch AnyKernel3
+        run: |
+          git clone --branch a54x https://github.com/daglaroglou/AnyKernel3.git $HOME/AnyKernel3
+
+      - name: Fetch kernel source
+        run: |
+          git clone --recurse-submodules -b ${{ matrix.branch }} https://github.com/daglaroglou/android_kernel_samsung_a54x.git $HOME/kernel
+
+      - name: Extract version info
+        id: version_info
+        run: |
+          cd $HOME/kernel
+          LOCALVERSION=$(grep "CONFIG_LOCALVERSION=" arch/arm64/configs/DΛG.config | cut -d'=' -f2 | tr -d '"')
+          echo "LOCALVERSION=$LOCALVERSION" >> $GITHUB_ENV
+          # Replace Λ with A for release name
+          KERNEL_NAME_RAW="${LOCALVERSION#-}"
+          KERNEL_NAME_RELEASE="${KERNEL_NAME_RAW//Λ/A}"
+          echo "KERNEL_NAME=$KERNEL_NAME_RELEASE" >> $GITHUB_ENV
+          echo "Extracted kernel name: $KERNEL_NAME_RELEASE"
+
+      - name: Login actions bot
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Set date
+        id: date
+        run: |
+          echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Set start time
+        id: start_time
+        run: |
+          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Build kernel
+        run: |
+          cd $HOME/kernel
+          export PATH="$HOME/toolchain/clang-r450784c/bin:$PATH"
+          export CONFIGS="a54x_defconfig DΛG.config"
+          export KERNEL_DIR=$HOME/kernel
+          export KBUILD_BUILD_HOST="GithubActions"
+          export KBUILD_BUILD_USER="daglaroglou"
+          export PLATFORM_VERSION=14
+          export TARGET_SOC=s5e8835
+          export DEPMOD=depmod
+          MAKE_PARAMS="-j$(nproc --all) ARCH=arm64 KBUILD_OUTPUT=$HOME/kernel/out CC=clang LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=llvm- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
+          make $MAKE_PARAMS $CONFIGS
+          make $MAKE_PARAMS
+
+      - name: Verify kernel build
+        run: |
+          if [ ! -f "$HOME/kernel/out/arch/arm64/boot/Image" ]; then
+            echo "Error: Kernel Image not found!"
+            exit 1
+          fi
+          echo "Kernel build successful!"
+          ls -la $HOME/kernel/out/arch/arm64/boot/Image
+      
+      - name: Create zip
+        run: |
+          cd $HOME/AnyKernel3
+          cp $HOME/kernel/out/arch/arm64/boot/Image $HOME/AnyKernel3/
+          7z a "${{ env.KERNEL_NAME }}.zip" . -xr!*.git*
+
+      - name: Calculate elapsed time
+        id: elapsed_time
+        run: |
+          NOW=$(date +%s)
+          ELAPSED=$((NOW - START_TIME))
+          MINUTES=$((ELAPSED / 60))
+          SECONDS=$((ELAPSED % 60))
+          ELAPSED_TIME="${MINUTES}m ${SECONDS}s"
+          echo "ELAPSED_TIME=$ELAPSED_TIME" >> $GITHUB_OUTPUT 
+
+      - name: Publish to GitHub
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: /home/runner/AnyKernel3/*.zip
+          name: DΛG Kernels - ${{ env.DATE }}
+          tag_name: "${{ env.DATE }}"
+          body: |
+            ### Changelog
+            ${{ needs.read_changelog.outputs.changelog }}
+
+            - **Kernel Version:** 5.15.153  
+            - **Clang Version:** Clang-r450784c  
+            - **Build Time:** ${{ steps.elapsed_time.outputs.ELAPSED_TIME }}
+            ---
+            <div align="center">
+            力を解き放つ
+            </div>
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+  notify_release:
+    runs-on: ubuntu-latest
+    needs: [setup, build_kernel, notify_workflow, read_changelog]
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Extract version info
+        id: version_info
+        run: |
+          git checkout ${{ matrix.branch }}
+          LOCALVERSION=$(grep "CONFIG_LOCALVERSION=" arch/arm64/configs/DΛG.config | cut -d'=' -f2 | tr -d '"')
+          echo "LOCALVERSION=$LOCALVERSION" >> $GITHUB_ENV
+          # Replace Λ with A for release name
+          KERNEL_NAME_RAW="${LOCALVERSION#-}"
+          KERNEL_NAME_RELEASE="${KERNEL_NAME_RAW//Λ/A}"
+          echo "KERNEL_NAME=$KERNEL_NAME_RELEASE" >> $GITHUB_ENV
+          echo "Extracted kernel name: $KERNEL_NAME_RELEASE"
+
+      - name: Set date
+        id: date
+        run: |
+          echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Download release asset
+        id: download_asset
+        run: |
+          # Get the latest release for today's date
+          RELEASE_TAG="${{ env.DATE }}"
+          
+          # Download the zip file for this branch
+          wget -O "${{ env.KERNEL_NAME }}.zip" \
+            "https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${{ env.KERNEL_NAME }}.zip"
+          
+          echo "ZIP_FILE=${{ env.KERNEL_NAME }}.zip" >> $GITHUB_OUTPUT
+
+      - name: Send Telegram Notification with File
+        run: |
+          # Prepare the caption text
+          CAPTION_TEXT="🌽 *New Kernel Release Uploaded*
+          📦 *Repository:* [${{ github.repository }}](https://github.com/${{ github.repository }})
+          🗂️ *Branch:* ${{ matrix.branch }}
+          ✏️ *Commit:* [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          🗞️ *Changelog:* ${{ needs.read_changelog.outputs.changelog }}
+          [🔗 View GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.DATE }})"
+          
+          # Upload the zip file with caption
+          curl -4 -s -S -L -w"\n" -o- \
+            -F document=@"${{ steps.download_asset.outputs.ZIP_FILE }}" \
+            -F parse_mode='Markdown' \
+            -F caption="${CAPTION_TEXT}" \
+            -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F message_thread_id="${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}" \
+            -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
