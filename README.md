@@ -22,7 +22,7 @@ DΛG Kernel is a high-performance custom kernel designed specifically for Samsun
 | Feature | Status | Priority | Description |
 |---------|--------|----------|-------------|
 | **Performance** | | | |
-| GPU Overclocking Support | ❌ | High | Safe GPU frequency boosting |
+| GPU Overclocking Support | ❓ | High | Safe GPU frequency boosting |
 | CPU I/O Schedulers Boost | ✅ | Done | Safe CPU boost |
 | **Power Management** | | | |
 | Adaptive Battery Scaling | ❌ | Low | ML-based power prediction |
@@ -30,12 +30,9 @@ DΛG Kernel is a high-performance custom kernel designed specifically for Samsun
 | **Security** | | | |
 | Kernel CFI | ❌ | Low | Control Flow Integrity |
 | **Connectivity** | | | |
-| WiFi 6E Optimization | ❌ | Low | Enhanced wireless performance |
-| 5G Modem Tuning | ❌ | Low | Carrier-specific optimizations |
-| Bluetooth LE Audio | ❌ | Low | Latest BT audio standards |
+| Bluetooth LE Audio | ✅ | Done | Latest BT audio standards |
 | **Display & Graphics** | | | |
 | High Refresh Rate Sync | ✅ | Done | Smooth 120Hz experience |
-| HDR10+ Enhancement | ❌ | Low | Improved color accuracy |
 | **Audio** | | | |
 | Low Latency Audio | ❌ | Low | Pro audio support |
 | **Development** | | | |
@@ -51,8 +48,9 @@ DΛG Kernel is a high-performance custom kernel designed specifically for Samsun
 
 | Device | Codename | SoC | Status |
 |--------|----------|-----|--------|
-| Galaxy A54B 5G | a54x | Exynos 1380 | ✅ Full Support |
-| Galaxy A54E 5G | a54x | Exynos 1380 | ✅ Full Support |
+| Galaxy A54 5G | a54x | Exynos 1380 | ✅ Full Support |
+| Galaxy M54 5G | m54x | Exynos 1380 | ✅ Full Support |
+| Galaxy A36 5G | a36x | Exynos 1380 | ❓ Untested |
 
 ## 🤝 Contributing
 
