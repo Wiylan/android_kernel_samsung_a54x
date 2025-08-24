@@ -122,18 +122,6 @@ jobs:
         run: |
           git clone --recurse-submodules -b ${{ matrix.branch }} https://github.com/daglaroglou/android_kernel_samsung_a54x.git $HOME/kernel
 
-      - name: Extract version info
-        id: version_info
-        run: |
-          cd $HOME/kernel
-          LOCALVERSION=$(grep "CONFIG_LOCALVERSION=" arch/arm64/configs/DΛG.config | cut -d'=' -f2 | tr -d '"')
-          echo "LOCALVERSION=$LOCALVERSION" >> $GITHUB_ENV
-          # Replace Λ with A for release name
-          KERNEL_NAME_RAW="${LOCALVERSION#-}"
-          KERNEL_NAME_RELEASE="${KERNEL_NAME_RAW//Λ/A}"
-          echo "KERNEL_NAME=$KERNEL_NAME_RELEASE" >> $GITHUB_ENV
-          echo "Extracted kernel name: $KERNEL_NAME_RELEASE"
-
       - name: Login actions bot
         run: |
           git config --global user.name "github-actions[bot]"
@@ -163,6 +151,18 @@ jobs:
           MAKE_PARAMS="-j$(nproc --all) ARCH=arm64 KBUILD_OUTPUT=$HOME/kernel/out CC=clang LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=llvm- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-"
           make $MAKE_PARAMS $CONFIGS
           make $MAKE_PARAMS
+
+      - name: Extract version info
+        id: version_info
+        run: |
+          cd $HOME/kernel
+          LOCALVERSION=$(grep "CONFIG_LOCALVERSION=" arch/arm64/configs/DΛG.config | cut -d'=' -f2 | tr -d '"')
+          echo "LOCALVERSION=$LOCALVERSION" >> $GITHUB_ENV
+          # Replace Λ with A for release name
+          KERNEL_NAME_RAW="${LOCALVERSION#-}"
+          KERNEL_NAME_RELEASE="${KERNEL_NAME_RAW//Λ/A}"
+          echo "KERNEL_NAME=$KERNEL_NAME_RELEASE" >> $GITHUB_ENV
+          echo "Extracted kernel name: $KERNEL_NAME_RELEASE"
 
       - name: Verify kernel build
         run: |
