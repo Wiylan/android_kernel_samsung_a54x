@@ -21,6 +21,7 @@ on:
 
 jobs:
   setup:
+    name: Setup Build Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -35,6 +36,7 @@ jobs:
           fi
 
   notify_workflow:
+    name: Notify Build Start
     needs: setup
     runs-on: ubuntu-latest
     steps:
@@ -52,6 +54,7 @@ jobs:
             -F parse_mode="Markdown"
 
   read_changelog:
+    name: Read Changelog
     needs: setup
     runs-on: ubuntu-latest
     outputs:
@@ -71,6 +74,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
   build_kernel:
+    name: Build ${{ matrix.branch }} Kernel
     needs: [setup, read_changelog]
     runs-on: ubuntu-latest
     strategy:
@@ -209,64 +213,140 @@ jobs:
             </div>
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-  notify_release:
-    runs-on: ubuntu-latest
+
+  notify_completion:
+    name: Notify Build Completion
     needs: [setup, build_kernel, notify_workflow, read_changelog]
-    strategy:
-      fail-fast: false
-      matrix:
-        branch: ${{ fromJson(needs.setup.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    if: always() && (needs.build_kernel.result != 'cancelled')
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ matrix.branch }}
-
-      - name: Extract version info
-        id: version_info
+      - name: Determine build results
+        id: results
         run: |
-          git checkout ${{ matrix.branch }}
-          LOCALVERSION=$(grep "CONFIG_LOCALVERSION=" arch/arm64/configs/DΛG.config | cut -d'=' -f2 | tr -d '"')
-          echo "LOCALVERSION=$LOCALVERSION" >> $GITHUB_ENV
-          # Replace Λ with A for release name
-          KERNEL_NAME_RAW="${LOCALVERSION#-}"
-          KERNEL_NAME_RELEASE="${KERNEL_NAME_RAW//Λ/A}"
-          echo "KERNEL_NAME=$KERNEL_NAME_RELEASE" >> $GITHUB_ENV
-          echo "Extracted kernel name: $KERNEL_NAME_RELEASE"
-
-      - name: Set date
-        id: date
-        run: |
-          echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-
-      - name: Download release asset
-        id: download_asset
-        run: |
-          # Get the latest release for today's date
-          RELEASE_TAG="${{ env.DATE }}"
+          # Count successful builds
+          success_count=0
+          failed_count=0
+          skipped_count=0
+          total_builds=0
           
-          # Download the zip file for this branch
-          wget -O "${{ env.KERNEL_NAME }}.zip" \
-            "https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${{ env.KERNEL_NAME }}.zip"
+          # Check each kernel branch that was supposed to build
+          matrix="${{ needs.setup.outputs.matrix }}"
           
-          echo "ZIP_FILE=${{ env.KERNEL_NAME }}.zip" >> $GITHUB_OUTPUT
+          # Count total builds based on matrix
+          if echo "$matrix" | grep -q "DΛG"; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q "permissive"; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q '"ksu"'; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q "ksun"; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q "sukisu"; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q "ksu-susfs"; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q "ksun-susfs"; then
+            total_builds=$((total_builds + 1))
+          fi
+          if echo "$matrix" | grep -q "sukisu-susfs"; then
+            total_builds=$((total_builds + 1))
+          fi
+          
+          # For kernel builds, we check the overall result of the build_kernel job
+          if [ "${{ needs.build_kernel.result }}" == "success" ]; then
+            success_count=$total_builds
+          elif [ "${{ needs.build_kernel.result }}" == "failure" ]; then
+            failed_count=$total_builds
+          else
+            skipped_count=$total_builds
+          fi
+          
+          echo "success_count=$success_count" >> $GITHUB_OUTPUT
+          echo "failed_count=$failed_count" >> $GITHUB_OUTPUT
+          echo "skipped_count=$skipped_count" >> $GITHUB_OUTPUT
+          echo "total_builds=$total_builds" >> $GITHUB_OUTPUT
+          
+          # Determine overall status
+          if [ $failed_count -eq 0 ] && [ $success_count -gt 0 ]; then
+            echo "status=✅ All builds completed successfully!" >> $GITHUB_OUTPUT
+            echo "emoji=🎉" >> $GITHUB_OUTPUT
+          elif [ $success_count -gt 0 ] && [ $failed_count -gt 0 ]; then
+            echo "status=⚠️ Builds completed with some failures" >> $GITHUB_OUTPUT
+            echo "emoji=⚠️" >> $GITHUB_OUTPUT
+          elif [ $failed_count -gt 0 ]; then
+            echo "status=❌ All builds failed" >> $GITHUB_OUTPUT
+            echo "emoji=💥" >> $GITHUB_OUTPUT
+          else
+            echo "status=⏭️ All builds were skipped" >> $GITHUB_OUTPUT
+            echo "emoji=⏭️" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Send Telegram Notification with File
+      - name: Send Telegram Completion Notification
         run: |
-          # Prepare the caption text
-          CAPTION_TEXT="🌽 *New Kernel Release Uploaded*
-          📦 *Repository:* [${{ github.repository }}](https://github.com/${{ github.repository }})
-          🗂️ *Branch:* ${{ matrix.branch }}
-          ✏️ *Commit:* [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-          🗞️ *Changelog:* ${{ needs.read_changelog.outputs.changelog }}
-          [🔗 View GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.DATE }})"
+          DATE=$(date +'%Y-%m-%d')
           
-          # Upload the zip file with caption
-          curl -4 -s -S -L -w"\n" -o- \
-            -F document=@"${{ steps.download_asset.outputs.ZIP_FILE }}" \
-            -F parse_mode='Markdown' \
-            -F caption="${CAPTION_TEXT}" \
+          # Build the kernel branch list that was built
+          kernel_list=""
+          matrix="${{ needs.setup.outputs.matrix }}"
+          
+          if echo "$matrix" | grep -q "DΛG"; then
+            kernel_list="$kernel_list• DΛG Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q "permissive"; then
+            kernel_list="$kernel_list• Permissive Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q '"ksu"'; then
+            kernel_list="$kernel_list• KSU Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q "ksun"; then
+            kernel_list="$kernel_list• KSUN Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q "sukisu"; then
+            kernel_list="$kernel_list• Sukisu Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q "ksu-susfs"; then
+            kernel_list="$kernel_list• KSU-SUSFS Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q "ksun-susfs"; then
+            kernel_list="$kernel_list• KSUN-SUSFS Kernel
+            "
+          fi
+          if echo "$matrix" | grep -q "sukisu-susfs"; then
+            kernel_list="$kernel_list• Sukisu-SUSFS Kernel
+            "
+          fi
+          
+          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -F message_thread_id="${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}" \
-            -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument
+            -F text="
+            ${{ steps.results.outputs.emoji }} *Kernel Build Completed!*
+            
+            📦 *Repository:* [${{ github.repository }}](https://github.com/${{ github.repository }})
+            🗂️ *Branches Built:* ${{ github.event.inputs.branch }}
+            📅 *Date:* $DATE
+            
+            📊 *Build Summary:*
+            ✅ Successful: ${{ steps.results.outputs.success_count }}/${{ steps.results.outputs.total_builds }}
+            ❌ Failed: ${{ steps.results.outputs.failed_count }}/${{ steps.results.outputs.total_builds }}
+            ⏭️ Skipped: ${{ steps.results.outputs.skipped_count }}/${{ steps.results.outputs.total_builds }}
+            
+            🔧 *Kernel Types:*
+            $kernel_list
+            📋 *Status:* ${{ steps.results.outputs.status }}
+            
+            💾 *Download releases:* [GitHub Releases](https://github.com/${{ github.repository }}/releases)
+            [🔗 View GitHub Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            -F parse_mode="Markdown"
