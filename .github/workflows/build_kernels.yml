@@ -15,6 +15,7 @@ on:
           - ksu
           - ksun
           - sukisu
+          - wildksu
           - ksu-susfs
           - ksun-susfs
           - sukisu-susfs
