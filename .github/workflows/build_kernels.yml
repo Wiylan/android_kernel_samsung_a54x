@@ -31,7 +31,7 @@ jobs:
         id: set-matrix
         run: |
           if [ "${{ github.event.inputs.branch }}" == "All branches" ]; then
-            echo 'matrix=["DΛG", "permissive", "ksu", "ksun", "sukisu", "ksu-susfs", "ksun-susfs", "sukisu-susfs"]' >> $GITHUB_OUTPUT
+            echo 'matrix=["DΛG", "permissive", "ksu", "ksun", "sukisu", "wildksu", "ksu-susfs", "ksun-susfs", "sukisu-susfs"]' >> $GITHUB_OUTPUT
           else
             echo 'matrix=["${{ github.event.inputs.branch }}"]' >> $GITHUB_OUTPUT
           fi
