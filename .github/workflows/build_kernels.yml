@@ -157,15 +157,6 @@ jobs:
           make $MAKE_PARAMS $CONFIGS
           make $MAKE_PARAMS
 
-      - name: Apply KPM patch
-        if: matrix.branch == 'sukisu' || matrix.branch == 'sukisu-susfs'
-        run: |
-          cd $HOME/kernel/out
-          curl -LO https://raw.githubusercontent.com/Numbersf/Action-Build/SukiSU-Ultra/patches/patch_linux
-          chmod +x patch_linux
-          if ./patch_linux; then
-            [[ -f oImage ]] && mv oImage Image
-
       - name: Extract version info
         id: version_info
         run: |
