@@ -142,6 +142,11 @@ jobs:
         run: |
           echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
 
+      - name: Initialize submodules
+        run: |
+          cd $HOME/kernel
+          git submodule update --init --recursive
+
       - name: Build kernel
         run: |
           cd $HOME/kernel
