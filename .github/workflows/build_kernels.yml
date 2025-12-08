@@ -1113,8 +1113,9 @@ jobs:
 
       - name: Copy kernel patches
         run: |
-          cd $HOME/kernel
-          cp $HOME/a54x_kernel_patches/susfs/* $HOME/kernel/
+          cd $HOME/a54x_kernel_patches
+          cp susfs/2.0.0/* $HOME/kernel/
+          cp hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
 
       - name: Apply patches
         run: |
@@ -1319,9 +1320,9 @@ jobs:
 
       - name: Copy kernel patches
         run: |
-          cd $HOME/kernel
-          cp $HOME/a54x_kernel_patches/susfs/* $HOME/kernel/
-          cp $HOME/a54x_kernel_patches/hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
+          cd $HOME/a54x_kernel_patches
+          cp susfs/1.5.12/* $HOME/kernel/
+          cp hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
 
       - name: Apply patches
         run: |
@@ -1524,8 +1525,9 @@ jobs:
 
       - name: Copy kernel patches
         run: |
-          cd $HOME/kernel
-          cp $HOME/a54x_kernel_patches/susfs/* $HOME/kernel/
+          cd $HOME/a54x_kernel_patches
+          cp susfs/2.0.0/* $HOME/kernel/
+          cp hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
 
       - name: Apply patches
         run: |
@@ -1730,9 +1732,9 @@ jobs:
 
       - name: Copy kernel patches
         run: |
-          cd $HOME/kernel
-          cp $HOME/a54x_kernel_patches/susfs/* $HOME/kernel/
-          cp $HOME/a54x_kernel_patches/hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
+          cd $HOME/a54x_kernel_patches
+          cp susfs/1.5.12/* $HOME/kernel/
+          cp hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
 
       - name: Apply patches
         run: |
