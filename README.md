@@ -37,7 +37,7 @@ DΛG Kernel is a high-performance custom kernel designed specifically for Samsun
 | Low Latency Audio | ❌ | Low | Pro audio support |
 | **Development** | | | |
 | KUnit Testing Framework | ❌ | Low | Automated kernel testing |
-| Live Patching Support | ❌ | Low | Runtime kernel updates |
+| Live Patching Support | ✅ | Done | Runtime kernel updates |
 
 ### Legend
 - ✅ **Implemented** - Feature is completed and available
