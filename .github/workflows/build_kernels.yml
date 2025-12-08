@@ -319,7 +319,6 @@ jobs:
             --set-val CONFIG_SECURITY_SELINUX_SID2STR_CACHE_SIZE 256 \
             --enable CONFIG_DEFAULT_SECURITY_SELINUX \
             --set-str CONFIG_DEFAULT_SECURITY "" \
-            --set-str CONFIG_LSM "landlock,lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,bpf" \
             --set-str CONFIG_CMDLINE "androidboot.selinux=permissive" \
             --enable CONFIG_CMDLINE_EXTEND \
             --enable CONFIG_MODULE_FORCE_UNLOAD \
