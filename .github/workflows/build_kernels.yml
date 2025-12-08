@@ -22,8 +22,30 @@ on:
           - WildKSU-SUSFS
 
 jobs:
+  notify-start:
+    name: Send Start Notification
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Checkout DΛG branch
+        uses: actions/checkout@v4
+        with:
+          ref: 'DΛG'
+
+      - name: Send Telegram Start Notification
+        run: |
+          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F message_thread_id="${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}" \
+            -F text="*New DΛG Kernel Build Started!*
+            🔗 [View GitHub Actions](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            -F parse_mode="Markdown" \
+            -F disable_web_page_preview=true
+
   build_dag:
     name: Build DΛG Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'DΛG' }}
     
@@ -234,6 +256,7 @@ jobs:
 
   build_permissive:
     name: Build Permissive Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'Permissive' }}
     
@@ -406,6 +429,7 @@ jobs:
 
   build_ksu:
     name: Build KSU Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'KSU' }}
     
@@ -554,6 +578,7 @@ jobs:
   
   build_ksun:
     name: Build KSUN Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'KSUN' }}
     
@@ -713,6 +738,7 @@ jobs:
 
   build_sukisu:
     name: Build SukiSU Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'SukiSU' }}
     
@@ -862,6 +888,7 @@ jobs:
 
   build_wildksu:
     name: Build WildKSU Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'WildKSU' }}
     
@@ -1021,6 +1048,7 @@ jobs:
 
   build_ksu_susfs:
     name: Build KSU-SUSFS Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'KSU-SUSFS' }}
     
@@ -1223,6 +1251,7 @@ jobs:
 
   build_ksun_susfs:
     name: Build KSUN-SUSFS Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'KSUN-SUSFS' }}
     
@@ -1431,6 +1460,7 @@ jobs:
 
   build_sukisu_susfs:
     name: Build SukiSU-SUSFS Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'SukiSU-SUSFS' }}
     
@@ -1635,6 +1665,7 @@ jobs:
 
   build_wildksu_susfs:
     name: Build WildKSU-SUSFS Kernel
+    needs: [notify-start]
     runs-on: ubuntu-latest
     if: ${{ github.event.inputs.variant == 'All variants' || github.event.inputs.variant == 'WildKSU-SUSFS' }}
     
@@ -1841,79 +1872,39 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  notify:
-    name: Send Notification
+  notify-release:
+    name: Send Release Notification
     runs-on: ubuntu-latest
-    needs: [build_dag, build_permissive, build_ksu, build_ksun, build_sukisu, build_wildksu, build_ksu_susfs, build_ksun_susfs, build_sukisu_susfs, build_wildksu_susfs]
+    needs: [notify-start, build_dag, build_permissive, build_ksu, build_ksun, build_sukisu, build_wildksu, build_ksu_susfs, build_ksun_susfs, build_sukisu_susfs, build_wildksu_susfs]
     if: always()
     
     steps:
+      - name: Checkout DΛG branch
+        uses: actions/checkout@v4
+        with:
+          ref: 'DΛG'
+
       - name: Set date
         run: echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Send Telegram Summary Notification
+      - name: Read CHANGELOG
+        id: changelog
         run: |
-          # Build status summary
-          TOTAL=0
-          SUCCESS=0
-          FAILED=0
-          SKIPPED=0
-          
-          VARIANTS=("DΛG:${{ needs.build_dag.result }}" "Permissive:${{ needs.build_permissive.result }}" "KSU:${{ needs.build_ksu.result }}" "KSUN:${{ needs.build_ksun.result }}" "SukiSU:${{ needs.build_sukisu.result }}" "WildKSU:${{ needs.build_wildksu.result }}" "KSU-SUSFS:${{ needs.build_ksu_susfs.result }}" "KSUN-SUSFS:${{ needs.build_ksun_susfs.result }}" "SukiSU-SUSFS:${{ needs.build_sukisu_susfs.result }}" "WildKSU-SUSFS:${{ needs.build_wildksu_susfs.result }}")
-          
-          STATUS_DETAILS=""
-          for variant in "${VARIANTS[@]}"; do
-            NAME="${variant%%:*}"
-            RESULT="${variant##*:}"
-            
-            if [ "$RESULT" == "success" ]; then
-              STATUS_DETAILS="${STATUS_DETAILS}✅ ${NAME}\n"
-              ((SUCCESS++))
-              ((TOTAL++))
-            elif [ "$RESULT" == "failure" ]; then
-              STATUS_DETAILS="${STATUS_DETAILS}❌ ${NAME}\n"
-              ((FAILED++))
-              ((TOTAL++))
-            elif [ "$RESULT" == "skipped" ]; then
-              STATUS_DETAILS="${STATUS_DETAILS}⏭️ ${NAME}\n"
-              ((SKIPPED++))
-            fi
-          done
-          
-          # Overall status
-          if [ $FAILED -eq 0 ] && [ $SUCCESS -gt 0 ]; then
-            OVERALL_EMOJI="✅"
-            OVERALL_STATUS="All Builds Successful"
-          elif [ $SUCCESS -gt 0 ] && [ $FAILED -gt 0 ]; then
-            OVERALL_EMOJI="⚠️"
-            OVERALL_STATUS="Partial Success"
-          elif [ $FAILED -gt 0 ]; then
-            OVERALL_EMOJI="❌"
-            OVERALL_STATUS="Build Failed"
-          else
-            OVERALL_EMOJI="⏭️"
-            OVERALL_STATUS="All Builds Skipped"
-          fi
-          
+          CHANGELOG=$(cat CHANGELOG.md)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Telegram Release Notification
+        run: |
           curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
             -F message_thread_id="${{ secrets.TELEGRAM_MESSAGE_THREAD_ID }}" \
-            -F text="
-          ${OVERALL_EMOJI} *DΛG Kernels Build Completed!*
-          
-          📦 *Repository:* [${{ github.repository }}](https://github.com/${{ github.repository }})
-          ⚙️ *Version:* 5.15.180
-          🔧 *Clang:* r450784c
-          📅 *Date:* ${DATE}
-          
-          📊 *Build Summary:*
-          • Total: ${TOTAL}
-          • Success: ${SUCCESS}
-          • Failed: ${FAILED}
-          • Skipped: ${SKIPPED}
-          
-          📋 *Build Results:*
-          ${STATUS_DETAILS}
-          💾 *Download releases:* [GitHub Releases](https://github.com/${{ github.repository }}/releases)
-          [🔗 View GitHub Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
-            -F parse_mode="Markdown"
+            -F text="*New DΛG Kernel Build Released!*
+            *Changelog:*
+            \`\`\`
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            \`\`\`
+            📥 [Download from GitHub Releases](https://github.com/${{ github.repository }}/releases/tag/${{ env.DATE }})" \
+            -F parse_mode="Markdown" \
+            -F disable_web_page_preview=true
