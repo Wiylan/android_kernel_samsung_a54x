@@ -1773,10 +1773,6 @@ jobs:
           cp fix_core_hook.c.patch fix_kernel_compat.c.patch fix_sucompat.c.patch $HOME/kernel/Wild_KSU/
           cp $HOME/kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_apk_sign.c.patch $HOME/kernel/Wild_KSU/
 
-          cd $HOME/kernel_patches/KernelSU
-          cp 10_enable_susfs_for_ksu.patch $HOME/kernel/Wild_KSU/
-
-
       - name: Apply patches
         run: |
           set +e
