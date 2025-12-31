@@ -604,24 +604,14 @@ jobs:
       - name: Import KernelSU Next driver
         run: |
           cd $HOME/kernel
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
-
-      - name: Download hooks
-        run: |
-          cd $HOME/kernel
-          wget https://raw.githubusercontent.com/daglaroglou/a54x_kernel_patches/refs/heads/main/hooks/scope_min_manual_hooks_v1.4.patch
-
-      - name: Apply hooks
-        run: |
-          cd $HOME/kernel
-          patch -p1 < scope_min_manual_hooks_v1.4.patch
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s dev
 
       - name: Set config variables for KernelSU Next
         run: |
           cd $HOME/kernel
           ./scripts/config --file arch/arm64/configs/custom.config \
             --enable CONFIG_KSU \
-            --set-val CONFIG_KSU_KPROBES_HOOK n
+            --enable CONFIG_KPROBES
 
       - name: Set config variables for Mountify
         run: |
