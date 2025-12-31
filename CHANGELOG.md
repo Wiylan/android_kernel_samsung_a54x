@@ -1,3 +1,3 @@
-1. Upstreamed source to A546BXXUFEYI4
-2. Updated KernelSU/KernelSU Next/SukiSU/WildKSU to latest versions
-3. Updated SUSFS to latest version
+1. Removed Baseband Guard due to permission issues
+2. Updated KernelSU Next to latest version
+3. Updated SUSFS to latest version for KernelSU Next
