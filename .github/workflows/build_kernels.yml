@@ -232,7 +232,7 @@ jobs:
             - **KernelSU-Next Version:** ${{ env.KSUN_VERSION }}
             - **SukiSU Ultra Version:** ${{ env.SUKISU_VERSION }}
             - **WildKSU Version:** ${{ env.WILDKSU_VERSION }}
-            - **SUSFS Version:** 2.0.0 (1.5.12 for WildKSU)
+            - **SUSFS Version:** 2.0.0
             - **Build Time:** ${{ steps.elapsed_time.outputs.ELAPSED_TIME }}
             ---
             <div align="center">
@@ -880,22 +880,65 @@ jobs:
           cd $HOME/kernel
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
 
-      - name: Download hooks
-        run: |
-          cd $HOME/kernel
-          wget https://raw.githubusercontent.com/daglaroglou/a54x_kernel_patches/refs/heads/main/hooks/scope_min_manual_hooks_v1.4.patch
-
-      - name: Apply hooks
-        run: |
-          cd $HOME/kernel
-          patch -p1 < scope_min_manual_hooks_v1.4.patch
-
       - name: Set config variables for WildKSU
         run: |
           cd $HOME/kernel
           ./scripts/config --file arch/arm64/configs/custom.config \
             --enable CONFIG_KSU \
-            --set-val CONFIG_KSU_KPROBES_HOOK n
+            --enable CONFIG_KPROBES
+
+      - name: Import SUSFS
+        run: |
+          cd $HOME
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android13-5.15
+
+      - name: Fetch kernel patches
+        run: |
+          cd $HOME
+          git clone https://github.com/daglaroglou/a54x_kernel_patches.git
+          git clone https://github.com/WildKernels/kernel_patches.git
+
+      - name: Copy SUSFS files
+        run: |
+          cd $HOME/susfs4ksu
+          cp kernel_patches/50_add_susfs_in_gki-android13-5.15.patch $HOME/kernel/
+          cp kernel_patches/fs/* $HOME/kernel/fs/
+          cp kernel_patches/include/linux/* $HOME/kernel/include/linux/
+
+      - name: Copy kernel patches
+        run: |
+          cd $HOME/a54x_kernel_patches
+          cp susfs/2.0.0/* $HOME/kernel/
+
+          cd $HOME/a54x_kernel_patches
+          cp wild/* $HOME/kernel/
+
+      - name: Apply patches
+        run: |
+          set +e
+          cd $HOME/kernel
+          patch -p1 < 50_add_susfs_in_gki-android13-5.15.patch
+          patch -p1 < exec.patch
+          patch -p1 < namespace.patch
+          patch -p1 < base.patch
+          
+          cd $HOME/kernel/Wild_KSU
+          patch -p1 < apk_sign.patch
+          set -e
+
+      - name: Set config variables for SUSFS
+        run: |
+          cd $HOME/kernel
+          ./scripts/config --file arch/arm64/configs/custom.config \
+            --set-val CONFIG_KSU_SUSFS n \
+            --set-val CONFIG_KSU_SUSFS_SUS_PATH n \
+            --set-val CONFIG_KSU_SUSFS_SUS_MOUNT n \
+            --set-val CONFIG_KSU_SUSFS_SUS_KSTAT n \
+            --set-val CONFIG_KSU_SUSFS_SPOOF_UNAME n \
+            --set-val CONFIG_KSU_SUSFS_ENABLE_LOG n \
+            --set-val CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS n \
+            --set-val CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG n \
+            --set-val CONFIG_KSU_SUSFS_OPEN_REDIRECT n
 
       - name: Set config variables for Mountify
         run: |
@@ -1575,7 +1618,7 @@ jobs:
         run: |
           echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-      - name: Import WildKSU driver by @WildKernels
+      - name: Import WildKSU driver
         run: |
           cd $HOME/kernel
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
@@ -1585,7 +1628,7 @@ jobs:
           cd $HOME/kernel
           ./scripts/config --file arch/arm64/configs/custom.config \
             --enable CONFIG_KSU \
-            --set-val CONFIG_KSU_KPROBES_HOOK n
+            --enable CONFIG_KPROBES
 
       - name: Import SUSFS
         run: |
@@ -1598,15 +1641,9 @@ jobs:
           git clone https://github.com/daglaroglou/a54x_kernel_patches.git
           git clone https://github.com/WildKernels/kernel_patches.git
 
-      - name: Checkout susfs4ksu
-        run: |
-          cd $HOME/susfs4ksu
-          git checkout babf6be195576f09aae79650d47abf6a76e8a21b
-
       - name: Copy SUSFS files
         run: |
           cd $HOME/susfs4ksu
-          cp kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch $HOME/kernel/Wild_KSU/
           cp kernel_patches/50_add_susfs_in_gki-android13-5.15.patch $HOME/kernel/
           cp kernel_patches/fs/* $HOME/kernel/fs/
           cp kernel_patches/include/linux/* $HOME/kernel/include/linux/
@@ -1614,12 +1651,10 @@ jobs:
       - name: Copy kernel patches
         run: |
           cd $HOME/a54x_kernel_patches
-          cp susfs/1.5.12/* $HOME/kernel/
-          cp hooks/scope_min_manual_hooks_v1.4.patch $HOME/kernel/
+          cp susfs/2.0.0/* $HOME/kernel/
 
-          cd $HOME/kernel_patches/wild/susfs_fix_patches/v1.5.12
-          cp fix_core_hook.c.patch fix_kernel_compat.c.patch fix_sucompat.c.patch $HOME/kernel/Wild_KSU/
-          cp $HOME/kernel_patches/next/susfs_fix_patches/stable/v1.5.12/fix_apk_sign.c.patch $HOME/kernel/Wild_KSU/
+          cd $HOME/a54x_kernel_patches
+          cp wild/* $HOME/kernel/
 
       - name: Apply patches
         run: |
@@ -1629,13 +1664,9 @@ jobs:
           patch -p1 < exec.patch
           patch -p1 < namespace.patch
           patch -p1 < base.patch
-          patch -p1 < scope_min_manual_hooks_v1.4.patch
+
           cd $HOME/kernel/Wild_KSU
-          patch -p1 < 10_enable_susfs_for_ksu.patch
-          patch -p1 < fix_core_hook.c.patch
-          patch -p1 < fix_kernel_compat.c.patch
-          patch -p1 < fix_sucompat.c.patch
-          patch -p1 < fix_apk_sign.c.patch
+          patch -p1 < apk_sign.patch
           set -e
 
       - name: Set config variables for SUSFS
@@ -1643,20 +1674,14 @@ jobs:
           cd $HOME/kernel
           ./scripts/config --file arch/arm64/configs/custom.config \
             --enable CONFIG_KSU_SUSFS \
-            --enable CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT \
             --enable CONFIG_KSU_SUSFS_SUS_PATH \
             --enable CONFIG_KSU_SUSFS_SUS_MOUNT \
-            --enable CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT \
-            --enable CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT \
             --enable CONFIG_KSU_SUSFS_SUS_KSTAT \
-            --enable CONFIG_KSU_SUSFS_TRY_UMOUNT \
-            --enable CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT \
             --enable CONFIG_KSU_SUSFS_SPOOF_UNAME \
             --enable CONFIG_KSU_SUSFS_ENABLE_LOG \
             --enable CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
             --enable CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
-            --enable CONFIG_KSU_SUSFS_OPEN_REDIRECT \
-            --set-val CONFIG_KSU_SUSFS_SUS_SU n
+            --enable CONFIG_KSU_SUSFS_OPEN_REDIRECT
 
       - name: Set config variables for Mountify
         run: |

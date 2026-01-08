@@ -1,3 +1,2 @@
-1. Removed Baseband Guard due to permission issues
-2. Updated KernelSU Next to latest version
-3. Updated SUSFS to latest version for KernelSU Next
+1. Updated Wild_KSU to latest release
+2. Updated SUSFS for Wild_KSU to latest version
