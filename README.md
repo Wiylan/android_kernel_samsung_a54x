@@ -50,10 +50,10 @@ DΛG Kernel is a high-performance custom kernel designed specifically for Samsun
 |--------|----------|-----|--------|
 | Galaxy A54 5G | a54x | Exynos 1380 | ✅ Full Support |
 | Galaxy M54 5G | m54x | Exynos 1380 | ✅ Full Support |
+| Galaxy M35 5G | m35x | Exynos 1380 | ✅ Full Support |
 | Galaxy F54 5G | f54x | Exynos 1380 | ❓ Untested |
 | Galaxy A35 5G | a35x | Exynos 1380 | ❓ Untested |
-| Galaxy M35 5G | m35x | Exynos 1380 | ❓ Untested |
-| Galaxy A26 5G (Global) | a36x | Exynos 1380 | ❓ Untested |
+| Galaxy A26 5G | a26x | Exynos 1380 | ❓ Untested |
 | Galaxy A36 5G | a36x | Exynos 1380 | ❓ Untested |
 | Galaxy F36 5G | f36x | Exynos 1380 | ❓ Untested |
 | Galaxy Jump 4 | ???? | Exynos 1380 | ❓ Untested |
